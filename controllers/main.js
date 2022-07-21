@@ -1,10 +1,42 @@
+const CustomAPIError = require('../errors/custom-error');
+const jwt = require('jsonwebtoken');
+
 const login = async (req, res) => {
-    res.send('Fake login/register/SignUp Route')
+    //Check username and password
+    const { username, password } = req.body
+
+    //Validate username and password
+    //1 mongoose validation || 2 Joi package || 3 check in the controller 
+    if (!username || !password) {
+        throw new CustomAPIError('Please provide username and password', 400)
+    }
+
+    //Create a new JT
+    //ID es creada como demo, normalmente es un valor de DB
+    const id = new Date().getDate()
+    //.sing requiere Payload(string u objeto, nunca password, generalmente pequeño), SecretKey and Options.
+    const token = jwt.sign({ id, username }, process.env.JWT_SECRET, { expiresIn: '30d' })
+    res.status(200).json({ msg: 'User created', token })
 };
 
 const dashboard = async (req, res) => {
-    const luckyNumber = Math.floor(Math.random() * 100)
-    res.status().json({ msg: `Hello User`, secret: `Here is your lucky number: ${luckyNumber}` })
+    //Validar existencia del header autorization del Token
+    const authHeader = req.headers.authorization;
+
+    if(!authHeader || !authHeader.startsWith('Bearer ')) {
+        throw new CustomAPIError('No token provided', 401)
+    }
+    //Tomar la porción codificada del header
+    const token = authHeader.split(' ')[1]
+    //Decodificar. Verify requiere Token y SecretKey
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET)
+
+        const luckyNumber = Math.floor(Math.random() * 100)
+        res.status(200).json({ msg: `Hello ${decoded.username}`, secret: `Here is your lucky number: ${luckyNumber}` })
+    } catch (error) {
+        throw new CustomAPIError('Not authorized to access this route', 401)
+    }
 };
 
 module.exports = { login, dashboard }
